@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from .base import AnimationBackend
 from .mock import MockAnimationBackend
+from .tpsmm import TPSMMBackend
 from .wan_animate2 import WanAnimate2Backend
 
 _BACKENDS: dict[str, type[AnimationBackend]] = {
     "mock": MockAnimationBackend,
+    "tpsmm": TPSMMBackend,
     "wan-animate-2": WanAnimate2Backend,
 }
 

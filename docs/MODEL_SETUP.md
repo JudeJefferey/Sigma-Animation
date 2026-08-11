@@ -1,9 +1,59 @@
-# Setting up the Wan-Animate-2 engine
+# Setting up a real animation engine
 
 The app ships with a `mock` backend (no GPU needed) so you can develop and
-test the full pipeline immediately. To generate real animations you need to
-plug in a real engine. This doc covers [Wan-Animate-2](https://github.com/Wan-Video/Wan-Animate-2),
-the reference implementation `app/inference/wan_animate2.py` wraps.
+test the full pipeline immediately. Two real engines are wired up, at
+opposite ends of the hardware spectrum:
+
+| Backend | Model | Hardware | Quality |
+| --- | --- | --- | --- |
+| `tpsmm` | [Thin-Plate-Spline-Motion-Model](https://github.com/yoyo-nb/Thin-Plate-Spline-Motion-Model) (MIT) | Runs on CPU, ~350MB checkpoint | Warps the source image to follow motion; domain-specific per checkpoint (faces, Tai Chi, etc), not open-ended generation |
+| `wan-animate-2` | [Wan-Animate-2](https://github.com/Wan-Video/Wan-Animate-2) | 8x A800/A100-class GPUs for 720p | State of the art, full generative character animation |
+
+## TPSMM (CPU-feasible)
+
+TPSMM (CVPR 2022) is a pre-diffusion motion-transfer model: keypoints are
+detected on the source image and driving video, and the source is warped
+frame-by-frame with a thin-plate-spline deformation plus inpainting. No
+denoising loop, no billion-parameter transformer -- it's small conv nets,
+and its own `demo.py` has a `--cpu` flag.
+
+### Setup
+
+```bash
+git clone https://github.com/yoyo-nb/Thin-Plate-Spline-Motion-Model.git
+cd Thin-Plate-Spline-Motion-Model
+pip install torch torchvision numpy scipy scikit-image imageio imageio-ffmpeg pyyaml tqdm matplotlib pandas
+```
+
+Download a checkpoint (hosted on Google Drive / Yandex / Baidu Yun by the
+authors -- see the repo's README for current links; there's also a
+community mirror on [Hugging Face](https://huggingface.co/spaces/AlekseyKorshuk/thin-plate-spline-motion-model/tree/main/checkpoints)).
+Pick the checkpoint that matches your use case:
+
+- `vox.pth.tar` + `config/vox-256.yaml` -- talking-head / portrait motion
+- `taichi.pth.tar` + `config/taichi-256.yaml` -- full-body motion
+
+Place it at `checkpoints/<name>.pth.tar` inside the repo, then point
+Sigma-Animation at it:
+
+```bash
+export TPSMM_REPO=/path/to/Thin-Plate-Spline-Motion-Model
+export TPSMM_CONFIG=/path/to/Thin-Plate-Spline-Motion-Model/config/vox-256.yaml
+export TPSMM_CHECKPOINT=/path/to/Thin-Plate-Spline-Motion-Model/checkpoints/vox.pth.tar
+export TPSMM_PYTHON=python3   # or a venv's python with the deps above installed
+export SIGMA_DEFAULT_BACKEND=tpsmm
+```
+
+`GET /api/backends` will list `tpsmm` once the repo, config, checkpoint, and
+python executable are all found on disk (see `TPSMMBackend.is_available`).
+
+Note: outbound access to the checkpoint hosts above depends on your network
+policy -- some sandboxed environments (including hosted Claude Code
+sessions) allow `github.com`/`pypi.org` but block `huggingface.co` and
+Google/Baidu file hosts. Download the checkpoint from a machine that can
+reach them, then copy it to wherever the backend runs.
+
+## Wan-Animate-2 (GPU, production quality)
 
 ## Hardware
 

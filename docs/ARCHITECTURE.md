@@ -28,6 +28,13 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
     CI -- it does not run any model, it just loops the reference image so the
     full pipeline (upload -> queue -> job -> download) is exercisable without
     a GPU.
+  - `tpsmm.py` shells out to a self-hosted Thin-Plate-Spline-Motion-Model
+    checkout. It's a small (few hundred MB) keypoint-and-warp model with its
+    own `--cpu` inference mode, so this is the backend that can realistically
+    run without a GPU -- lower quality and generality than Wan-Animate-2
+    (it warps the source image rather than generating fresh appearance, and
+    each checkpoint is domain-specific), but real model output on modest
+    hardware.
   - `wan_animate2.py` shells out to a self-hosted Wan-Animate-2 checkout via
     `torchrun`. This keeps the heavy multi-GPU model process isolated from the
     lightweight API process.

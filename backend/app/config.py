@@ -17,6 +17,13 @@ class Settings:
     wan_animate2_python: str = os.environ.get("WAN_ANIMATE2_PYTHON", "python")
     wan_animate2_num_gpus: int = int(os.environ.get("WAN_ANIMATE2_NUM_GPUS", "1"))
 
+    tpsmm_repo: str | None = os.environ.get("TPSMM_REPO")
+    tpsmm_config: str | None = os.environ.get("TPSMM_CONFIG")
+    tpsmm_checkpoint: str | None = os.environ.get("TPSMM_CHECKPOINT")
+    tpsmm_python: str = os.environ.get("TPSMM_PYTHON", "python3")
+    tpsmm_mode: str = os.environ.get("TPSMM_MODE", "relative")
+    tpsmm_img_shape: str = os.environ.get("TPSMM_IMG_SHAPE", "256,256")
+
     max_upload_mb: int = int(os.environ.get("SIGMA_MAX_UPLOAD_MB", "200"))
 
     @property
