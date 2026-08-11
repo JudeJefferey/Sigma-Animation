@@ -1,0 +1,26 @@
+# Default (CPU) stack: API + web UI running the mock backend.
+# Use this to develop the app itself, or to demo the pipeline without a GPU.
+# For real character animation with Wan-Animate-2, see docker-compose.gpu.yml.
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      SIGMA_DEFAULT_BACKEND: mock
+    volumes:
+      - sigma-data:/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  sigma-data:

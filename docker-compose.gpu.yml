@@ -1,0 +1,24 @@
+# GPU stack running the real Wan-Animate-2 engine.
+# Requires: a Linux host with NVIDIA GPU(s) and nvidia-container-toolkit,
+# and model weights downloaded to ./ckpts (see docs/MODEL_SETUP.md).
+#
+# Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gpu
+    environment:
+      SIGMA_DEFAULT_BACKEND: wan-animate-2
+      WAN_ANIMATE2_NUM_GPUS: "${WAN_ANIMATE2_NUM_GPUS:-1}"
+    volumes:
+      - sigma-data:/data
+      - ./ckpts:/ckpts:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

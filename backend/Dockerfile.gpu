@@ -1,0 +1,33 @@
+# GPU image that bundles the Sigma-Animation API together with a
+# Wan-Animate-2 checkout, for operators who want a single container.
+# Model weights are NOT baked in -- mount them at /ckpts at runtime
+# (see docs/MODEL_SETUP.md). Requires nvidia-container-toolkit on the host.
+FROM nvidia/cuda:12.6.0-devel-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-venv python3-pip git ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone --recursive https://github.com/Wan-Video/Wan-Animate-2.git
+
+WORKDIR /opt/Wan-Animate-2
+RUN pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 \
+        --index-url https://download.pytorch.org/whl/cu126 \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -e .
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+
+ENV SIGMA_DATA_DIR=/data
+ENV WAN_ANIMATE2_REPO=/opt/Wan-Animate-2
+ENV WAN_ANIMATE2_CONFIG=/opt/Wan-Animate-2/infer/wan_animate_2.yaml
+ENV SIGMA_DEFAULT_BACKEND=wan-animate-2
+VOLUME ["/data", "/ckpts"]
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
