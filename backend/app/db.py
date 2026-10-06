@@ -71,6 +71,18 @@ def transaction():
             raise
 
 
+def fetch(sql: str, args: tuple = ()) -> list[sqlite3.Row]:
+    """Run a read query under the same lock as writes.
+
+    The connection is shared between request threads and the worker thread;
+    sqlite3 connections aren't safe for concurrent use, so reads must not
+    interleave with a write in progress.
+    """
+    conn = get_conn()
+    with _lock:
+        return conn.execute(sql, args).fetchall()
+
+
 def row_to_job_dict(row: sqlite3.Row) -> dict:
     d = dict(row)
     d["params"] = json.loads(d["params"])

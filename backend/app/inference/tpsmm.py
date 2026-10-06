@@ -33,6 +33,7 @@ from pathlib import Path
 from ..config import settings
 from .base import AnimationBackend, AnimationRequest, AnimationResult
 from .process import run_cancellable
+from .video import rescale
 
 
 class TPSMMBackend(AnimationBackend):
@@ -102,7 +103,7 @@ class TPSMMBackend(AnimationBackend):
             raise RuntimeError(f"TPSMM inference failed (exit {proc.returncode}):\n{proc.stderr[-4000:]}")
 
         final_result = request.output_dir / "result.mp4"
-        self._rescale(raw_result, final_result, request.width, request.height, request.cancel_event)
+        rescale(raw_result, final_result, request.width, request.height, cancel_event=request.cancel_event)
 
         return AnimationResult(
             output_video_path=final_result,
@@ -124,17 +125,3 @@ class TPSMMBackend(AnimationBackend):
         proc = run_cancellable(cmd, cancel_event=cancel_event)
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to trim driving video: {proc.stderr}")
-
-    @staticmethod
-    def _rescale(
-        src: Path, dest: Path, width: int, height: int, cancel_event: threading.Event | None = None
-    ) -> None:
-        cmd = [
-            "ffmpeg", "-y", "-i", str(src.resolve()),
-            "-vf", f"scale={width}:{height}",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            str(dest.resolve()),
-        ]
-        proc = run_cancellable(cmd, cancel_event=cancel_event)
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to rescale TPSMM output: {proc.stderr}")

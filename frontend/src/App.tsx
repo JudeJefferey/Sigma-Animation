@@ -109,7 +109,12 @@ export default function App() {
       <main className="app__main">
         <section className="app__panel">
           <h2>New animation</h2>
-          <UploadForm backends={backends} submitting={submitting} onSubmit={handleSubmit} />
+          <UploadForm
+            backends={backends}
+            finishedJobs={jobs.filter((j) => j.status === "completed")}
+            submitting={submitting}
+            onSubmit={handleSubmit}
+          />
           {submitError && <div className="app__error">{submitError}</div>}
         </section>
 

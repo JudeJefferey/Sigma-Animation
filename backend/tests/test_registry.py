@@ -1,8 +1,8 @@
 from app.inference.registry import _BACKENDS, get_backend
 
 
-def test_all_three_backends_registered():
-    assert set(_BACKENDS) == {"mock", "tpsmm", "wan-animate-2"}
+def test_all_backends_registered():
+    assert set(_BACKENDS) == {"mock", "tpsmm", "wan-animate-2", "wan-ti2v"}
 
 
 def test_get_backend_returns_correct_type():

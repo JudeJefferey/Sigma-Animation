@@ -17,15 +17,18 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
 
 - **`app/main.py`** -- FastAPI app, starts a background worker thread and
   requeues any interrupted jobs on boot.
-- **`app/routers/jobs.py`** -- HTTP surface: submit a job (multipart upload of
-  image + video + params), poll job status, cancel or delete a job, download
+- **`app/routers/jobs.py`** -- HTTP surface: submit a job in one of three
+  modes (multipart upload + params, see Data flow), poll job status, cancel or delete a job, download
   the result, and list engines (`GET /api/backends` reports every registered
-  engine with a description and whether it is set up on this server).
+  engine with a description, whether it is set up on this server, which
+  modes it supports, and any clip-length cap).
 - **`app/jobs.py`** -- job persistence (SQLite) and a single-worker queue.
   Animation inference is GPU-bound and heavyweight, so jobs run one at a time
   by design rather than in a thread/process pool.
 - **`app/inference/`** -- the pluggable engine layer:
-  - `base.py` defines `AnimationBackend`, `AnimationRequest`, `AnimationResult`.
+  - `base.py` defines `AnimationBackend`, `AnimationRequest`, `AnimationResult`,
+    and the two engine capabilities: `motion_transfer` (image + driving video)
+    and `image_to_video` (image + prompt). Each backend declares its `modes`.
   - `mock.py` is a dependency-light backend (ffmpeg only) for local dev and
     CI -- it does not run any model, it just loops the reference image so the
     full pipeline (upload -> queue -> job -> download) is exercisable without
@@ -40,6 +43,9 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
   - `wan_animate2.py` shells out to a self-hosted Wan-Animate-2 checkout via
     `torchrun`. This keeps the heavy multi-GPU model process isolated from the
     lightweight API process.
+  - `wan_ti2v.py` shells out to Wan2.2's `generate.py` for TI2V-5B, the
+    image + prompt engine behind the "Animate image" mode.
+  - `video.py` holds the shared ffmpeg helpers (rescale, first-frame extraction).
   - `process.py` is the shared subprocess runner. Engines start their
     commands through `run_cancellable`, which puts the child in its own
     process group so cancelling a job kills the whole tree (torchrun spawns
@@ -50,16 +56,26 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
 
 ## Frontend
 
-Vite + React + TypeScript, single page: an upload form and a list of jobs
+Vite + React + TypeScript, single page: an upload form (with a tab per mode)
+and a list of jobs
 that poll for status and render the finished video inline. No build-time
 dependency on any AI vendor SDK.
 
 ## Data flow
 
-1. Client `POST /api/jobs` with `reference_image`, `driving_video`, and
-   generation params (resolution, fps, steps, prompt, which `backend`).
-2. Backend rejects unknown engines and engines that aren't set up on this
-   server (400), validates file types/sizes, saves them under
+1. Client `POST /api/jobs` with a `mode`, its inputs, and generation params
+   (resolution, fps, length, smoothing, steps, prompt, which `backend`):
+   - `motion_transfer`: `reference_image` + `driving_video`.
+   - `image_to_video`: `reference_image` + `prompt`.
+   - `reanimate`: a source (`source_video` upload, or `source_job_id` of a
+     completed job) + `driving_video`. The source's first frame is extracted
+     as the reference image and the job runs as motion transfer. With
+     `source_job_id` and no `driving_video`, the source job is instead
+     re-run: its original inputs are copied into the new job (so deleting
+     the old one is safe) and it keeps the original job's mode.
+2. Backend rejects unknown modes, missing inputs, unknown engines, engines
+   that aren't set up on this server, and engines that can't do the mode the
+   job needs (400). It validates file types/sizes, saves them under
    `data/uploads/<job_id>/`, inserts a `queued` row, and enqueues the job id.
 3. The worker thread picks up the job, marks it `running`, and calls the
    selected `AnimationBackend.run(...)`.

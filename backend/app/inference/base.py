@@ -14,10 +14,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+# What an engine can do. A job's mode decides which one it needs:
+#   motion_transfer -- animate a reference image to follow a driving video
+#   image_to_video  -- animate a reference image from a text prompt, no video
+MOTION_TRANSFER = "motion_transfer"
+IMAGE_TO_VIDEO = "image_to_video"
+
+
 @dataclass
 class AnimationRequest:
     reference_image_path: Path
-    driving_video_path: Path
+    # None for image_to_video requests.
+    driving_video_path: Path | None
     output_dir: Path
     width: int = 720
     height: int = 1280
@@ -45,6 +53,9 @@ class AnimationBackend(ABC):
 
     name: str
     description: str = ""
+    modes: frozenset[str] = frozenset({MOTION_TRANSFER})
+    # Longest clip the model handles well, if shorter than the app-wide limit.
+    max_clip_seconds: int | None = None
 
     @abstractmethod
     def is_available(self) -> bool:

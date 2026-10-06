@@ -10,13 +10,14 @@ from __future__ import annotations
 import shutil
 import time
 
-from .base import AnimationBackend, AnimationRequest, AnimationResult
+from .base import IMAGE_TO_VIDEO, MOTION_TRANSFER, AnimationBackend, AnimationRequest, AnimationResult
 from .process import run_cancellable
 
 
 class MockAnimationBackend(AnimationBackend):
     name = "mock"
     description = "Loops the reference image (ffmpeg only, no model) -- for exercising the pipeline."
+    modes = frozenset({MOTION_TRANSFER, IMAGE_TO_VIDEO})
 
     def is_available(self) -> bool:
         return shutil.which("ffmpeg") is not None

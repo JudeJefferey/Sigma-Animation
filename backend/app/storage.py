@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import uuid
 from pathlib import Path
 
@@ -44,6 +45,16 @@ async def save_upload(file: UploadFile, kind: str, job_id: str) -> Path:
                 raise ValueError(f"File exceeds max upload size of {settings.max_upload_mb}MB")
             out.write(chunk)
 
+    return dest
+
+
+def copy_input(src: Path, job_id: str, kind: str) -> Path:
+    """Copy an earlier job's input file into this job's upload dir, so deleting the
+    earlier job doesn't break this one."""
+    job_dir = job_upload_dir(job_id)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    dest = job_dir / f"{kind}{src.suffix.lower()}"
+    shutil.copyfile(src, dest)
     return dest
 
 

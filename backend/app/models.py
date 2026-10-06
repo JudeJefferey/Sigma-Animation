@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +14,21 @@ class JobStatus(str, Enum):
     cancelled = "cancelled"
 
 
+JobMode = Literal["motion_transfer", "image_to_video", "reanimate"]
+
+# The engine capability each job mode needs. Reanimate extracts the source
+# video's first frame as the character, then runs ordinary motion transfer.
+ENGINE_MODE: dict[str, str] = {
+    "motion_transfer": "motion_transfer",
+    "image_to_video": "image_to_video",
+    "reanimate": "motion_transfer",
+}
+
+
 class JobParams(BaseModel):
+    mode: JobMode = "motion_transfer"
+    # Set when the job was made from an earlier job's result or inputs.
+    source_job_id: str | None = None
     width: int = 720
     height: int = 1280
     fps: int = 24

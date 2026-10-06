@@ -6,6 +6,12 @@ interface Props {
   onDelete: (jobId: string) => void;
 }
 
+const MODE_LABEL: Record<Job["params"]["mode"], string> = {
+  motion_transfer: "copy motion",
+  image_to_video: "animate image",
+  reanimate: "reanimate",
+};
+
 const STATUS_LABEL: Record<Job["status"], string> = {
   queued: "Queued",
   running: "Generating...",
@@ -24,7 +30,9 @@ export default function JobStatus({ job, onCancel, onDelete }: Props) {
         <span className="job-card__status">{STATUS_LABEL[job.status]}</span>
       </div>
       <div className="job-card__meta">
-        engine: {job.backend} · {job.params.width}x{job.params.height} · {job.params.fps}fps
+        {MODE_LABEL[job.params.mode ?? "motion_transfer"]}
+        {job.params.source_job_id && ` of ${job.params.source_job_id.slice(0, 8)}`} · engine: {job.backend} ·{" "}
+        {job.params.width}x{job.params.height} · {job.params.fps}fps
         {job.params.output_fps > job.params.fps && ` → ${job.params.output_fps}fps smoothed`}
       </div>
 

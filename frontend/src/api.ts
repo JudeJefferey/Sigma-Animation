@@ -2,7 +2,18 @@ export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancell
 
 export const FINISHED_STATUSES: JobStatus[] = ["completed", "failed", "cancelled"];
 
+export type JobMode = "motion_transfer" | "image_to_video" | "reanimate";
+
+// The engine capability each job mode needs (mirrors the backend's ENGINE_MODE).
+export const ENGINE_MODE: Record<JobMode, string> = {
+  motion_transfer: "motion_transfer",
+  image_to_video: "image_to_video",
+  reanimate: "motion_transfer",
+};
+
 export interface JobParams {
+  mode: JobMode;
+  source_job_id: string | null;
   width: number;
   height: number;
   fps: number;
@@ -33,6 +44,8 @@ export interface BackendInfo {
   name: string;
   description: string;
   available: boolean;
+  modes: string[];
+  max_clip_seconds: number | null;
 }
 
 export interface BackendsResponse {
@@ -42,8 +55,11 @@ export interface BackendsResponse {
 }
 
 export interface CreateJobInput {
-  referenceImage: File;
-  drivingVideo: File;
+  mode: JobMode;
+  referenceImage: File | null;
+  drivingVideo: File | null;
+  sourceVideo: File | null;
+  sourceJobId: string | null;
   backend: string;
   prompt: string;
   promptRef: string;
@@ -72,8 +88,11 @@ export async function listBackends(): Promise<BackendsResponse> {
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
   const form = new FormData();
-  form.set("reference_image", input.referenceImage);
-  form.set("driving_video", input.drivingVideo);
+  form.set("mode", input.mode);
+  if (input.referenceImage) form.set("reference_image", input.referenceImage);
+  if (input.drivingVideo) form.set("driving_video", input.drivingVideo);
+  if (input.sourceVideo) form.set("source_video", input.sourceVideo);
+  if (input.sourceJobId) form.set("source_job_id", input.sourceJobId);
   form.set("backend", input.backend);
   form.set("prompt", input.prompt);
   form.set("prompt_ref", input.promptRef);
