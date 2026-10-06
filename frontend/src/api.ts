@@ -6,6 +6,7 @@ export interface JobParams {
   width: number;
   height: number;
   fps: number;
+  output_fps: number;
   clip_len: number;
   sample_guide_scale: number;
   steps: number;
@@ -49,6 +50,7 @@ export interface CreateJobInput {
   width: number;
   height: number;
   fps: number;
+  outputFps: number;
   clipLen: number;
   sampleGuideScale: number;
   steps: number;
@@ -78,6 +80,7 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
   form.set("width", String(input.width));
   form.set("height", String(input.height));
   form.set("fps", String(input.fps));
+  form.set("output_fps", String(input.outputFps));
   form.set("clip_len", String(input.clipLen));
   form.set("sample_guide_scale", String(input.sampleGuideScale));
   form.set("steps", String(input.steps));

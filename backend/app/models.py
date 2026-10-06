@@ -17,6 +17,9 @@ class JobParams(BaseModel):
     width: int = 720
     height: int = 1280
     fps: int = 24
+    # Final video frame rate. Above `fps`, in-between frames are interpolated
+    # after generation; 0 keeps the engine's output as-is.
+    output_fps: int = 0
     clip_len: int = 81
     sample_guide_scale: float = 3.0
     steps: int = 40

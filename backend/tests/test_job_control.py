@@ -164,3 +164,45 @@ def test_accepts_one_minute_clip(client):
 def test_rejects_invalid_clip_length(client, clip_len, fps):
     resp = _submit_clip(client, clip_len=clip_len, fps=fps)
     assert resp.status_code == 400, resp.text
+
+
+def _probe(path, entries):
+    import subprocess
+
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", entries,
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True, text=True, check=True,
+    )
+    return out.stdout.split()
+
+
+def test_output_fps_interpolates_and_keeps_duration(client, tmp_path):
+    files = {
+        "reference_image": ("ref.png", _fake_image_bytes(), "image/png"),
+        "driving_video": ("drive.mp4", _fake_video_bytes(), "video/mp4"),
+    }
+    data = {"backend": "mock", "clip_len": "16", "fps": "8", "output_fps": "60", "width": "64", "height": "64"}
+    resp = client.post("/api/jobs", files=files, data=data)
+    assert resp.status_code == 200, resp.text
+    job = _wait_for(client, resp.json()["id"], {"completed", "failed"}, timeout=60)
+    assert job["status"] == "completed", job
+    assert job["params"]["output_fps"] == 60
+    assert "interpolated 8fps -> 60fps" in job["log"]
+
+    video = tmp_path / "out.mp4"
+    video.write_bytes(client.get(job["output_video_url"]).content)
+    rate, duration = _probe(video, "stream=r_frame_rate:format=duration")
+    assert rate == "60/1"
+    assert abs(float(duration) - 2.0) < 0.05
+
+
+@pytest.mark.parametrize(("output_fps", "fps"), [(121, 24), (12, 24), (-1, 24)])
+def test_rejects_invalid_output_fps(client, output_fps, fps):
+    files = {
+        "reference_image": ("ref.png", _fake_image_bytes(), "image/png"),
+        "driving_video": ("drive.mp4", _fake_video_bytes(), "video/mp4"),
+    }
+    data = {"backend": "mock", "clip_len": "24", "fps": str(fps), "output_fps": str(output_fps)}
+    resp = client.post("/api/jobs", files=files, data=data)
+    assert resp.status_code == 400, resp.text

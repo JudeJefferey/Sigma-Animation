@@ -53,6 +53,17 @@ def _validate_clip(clip_len: int, fps: int) -> None:
         )
 
 
+def _validate_output_fps(output_fps: int, fps: int) -> None:
+    if output_fps == 0:
+        return
+    if not fps <= output_fps <= settings.max_output_fps:
+        raise HTTPException(
+            status_code=400,
+            detail=f"output_fps must be 0 (off) or between the generation fps ({fps}) "
+            f"and {settings.max_output_fps}",
+        )
+
+
 def _require_usable_backend(name: str) -> None:
     known = {b["name"]: b for b in backend_info()}
     if name not in known:
@@ -75,6 +86,7 @@ async def create_job(
     width: int = Form(720),
     height: int = Form(1280),
     fps: int = Form(24),
+    output_fps: int = Form(0),
     clip_len: int = Form(81),
     sample_guide_scale: float = Form(3.0),
     steps: int = Form(40),
@@ -84,6 +96,7 @@ async def create_job(
     # Reject before writing uploads to disk, rather than failing later in the worker.
     _require_usable_backend(backend)
     _validate_clip(clip_len, fps)
+    _validate_output_fps(output_fps, fps)
 
     job_id = new_job_id()
     try:
@@ -93,7 +106,7 @@ async def create_job(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     params = JobParams(
-        width=width, height=height, fps=fps, clip_len=clip_len,
+        width=width, height=height, fps=fps, output_fps=output_fps, clip_len=clip_len,
         sample_guide_scale=sample_guide_scale, steps=steps, seed=seed,
         prompt=prompt, prompt_ref=prompt_ref, backend=backend,
     )

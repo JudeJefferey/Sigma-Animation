@@ -4,6 +4,7 @@ import json
 import queue
 import shutil
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .inference.base import AnimationRequest
 from .inference.process import JobCancelled
 from .inference.registry import get_backend
 from .models import JobParams
+from .postprocess import interpolate_fps
 from .storage import job_output_dir, job_upload_dir
 
 _work_queue: "queue.Queue[str]" = queue.Queue()
@@ -154,6 +156,13 @@ def _run_backend(job_id: str, job: dict, cancel_event: threading.Event) -> None:
             cancel_event=cancel_event,
         )
         result = backend.run(request)
+        if params.output_fps > params.fps:
+            smoothed = request.output_dir / f"result_{params.output_fps}fps.mp4"
+            interp_start = time.time()
+            interpolate_fps(result.output_video_path, smoothed, params.output_fps, cancel_event)
+            result.processing_seconds += time.time() - interp_start
+            result.output_video_path = smoothed
+            result.log += f"\ninterpolated {params.fps}fps -> {params.output_fps}fps"
         _set_status(
             job_id,
             status="completed",

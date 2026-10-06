@@ -3,6 +3,8 @@ import type { BackendsResponse, CreateJobInput } from "../api";
 
 // Matches the backend's default SIGMA_MAX_CLIP_SECONDS.
 const MAX_CLIP_SECONDS = 60;
+// Smoothing targets; each must stay within the backend's SIGMA_MAX_OUTPUT_FPS (default 120).
+const OUTPUT_FPS_CHOICES = [30, 48, 60, 90, 120];
 
 interface Props {
   backends: BackendsResponse | null;
@@ -20,6 +22,9 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
   const [fps, setFps] = useState(24);
   const [steps, setSteps] = useState(40);
   const [clipSeconds, setClipSeconds] = useState(3);
+  const [outputFps, setOutputFps] = useState(0);
+  // A target at or below the generation fps would do nothing, so treat it as off.
+  const effectiveOutputFps = outputFps > fps ? outputFps : 0;
   const clipFrames = Math.round(clipSeconds * fps);
 
   // The engine list loads after first render; pick the server's default once it
@@ -44,6 +49,7 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
       width,
       height,
       fps,
+      outputFps: effectiveOutputFps,
       clipLen: clipFrames,
       sampleGuideScale: 3.0,
       steps,
@@ -110,6 +116,21 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
           <input type="number" value={fps} min={1} max={60} onChange={(e) => setFps(Number(e.target.value))} />
         </label>
       </div>
+
+      <label>
+        Output FPS (smoothing)
+        <select value={effectiveOutputFps} onChange={(e) => setOutputFps(Number(e.target.value))}>
+          <option value={0}>Same as generated ({fps}fps)</option>
+          {OUTPUT_FPS_CHOICES.filter((choice) => choice > fps).map((choice) => (
+            <option key={choice} value={choice}>
+              {choice}fps
+            </option>
+          ))}
+        </select>
+        <span className="upload-form__hint">
+          Fills in extra frames after generation for smoother motion, without the cost of generating them.
+        </span>
+      </label>
 
       <label>
         Clip length (seconds, max {MAX_CLIP_SECONDS})

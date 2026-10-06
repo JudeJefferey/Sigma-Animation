@@ -25,6 +25,7 @@ export default function JobStatus({ job, onCancel, onDelete }: Props) {
       </div>
       <div className="job-card__meta">
         engine: {job.backend} · {job.params.width}x{job.params.height} · {job.params.fps}fps
+        {job.params.output_fps > job.params.fps && ` → ${job.params.output_fps}fps smoothed`}
       </div>
 
       {job.status === "completed" && job.output_video_url && (
