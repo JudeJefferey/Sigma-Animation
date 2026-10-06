@@ -26,16 +26,19 @@ Configure via environment variables (see backend/app/config.py):
 from __future__ import annotations
 
 import shutil
-import subprocess
+import threading
 import time
 from pathlib import Path
 
 from ..config import settings
 from .base import AnimationBackend, AnimationRequest, AnimationResult
+from .process import run_cancellable
+from .video import rescale
 
 
 class TPSMMBackend(AnimationBackend):
     name = "tpsmm"
+    description = "Thin-Plate-Spline-Motion-Model: warps the reference image to follow the driving motion. Runs on CPU."
 
     def __init__(self) -> None:
         self.repo_dir = Path(settings.tpsmm_repo) if settings.tpsmm_repo else None
@@ -81,7 +84,7 @@ class TPSMMBackend(AnimationBackend):
 
         trimmed_driving = request.output_dir / "driving_trimmed.mp4"
         duration = max(1, request.clip_len // max(request.fps, 1))
-        self._trim_video(request.driving_video_path, trimmed_driving, duration, request.fps)
+        self._trim_video(request.driving_video_path, trimmed_driving, duration, request.fps, request.cancel_event)
 
         raw_result = request.output_dir / "raw_result.mp4"
         cmd = [
@@ -95,12 +98,12 @@ class TPSMMBackend(AnimationBackend):
             "--mode", self.mode,
             "--cpu",
         ]
-        proc = subprocess.run(cmd, cwd=str(self.repo_dir), capture_output=True, text=True)
+        proc = run_cancellable(cmd, cwd=self.repo_dir, cancel_event=request.cancel_event)
         if proc.returncode != 0 or not raw_result.is_file():
             raise RuntimeError(f"TPSMM inference failed (exit {proc.returncode}):\n{proc.stderr[-4000:]}")
 
         final_result = request.output_dir / "result.mp4"
-        self._rescale(raw_result, final_result, request.width, request.height)
+        rescale(raw_result, final_result, request.width, request.height, cancel_event=request.cancel_event)
 
         return AnimationResult(
             output_video_path=final_result,
@@ -109,7 +112,9 @@ class TPSMMBackend(AnimationBackend):
         )
 
     @staticmethod
-    def _trim_video(src: Path, dest: Path, duration_seconds: int, fps: int) -> None:
+    def _trim_video(
+        src: Path, dest: Path, duration_seconds: int, fps: int, cancel_event: threading.Event | None = None
+    ) -> None:
         cmd = [
             "ffmpeg", "-y", "-i", str(src.resolve()),
             "-t", str(duration_seconds),
@@ -117,18 +122,6 @@ class TPSMMBackend(AnimationBackend):
             "-an",
             str(dest.resolve()),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = run_cancellable(cmd, cancel_event=cancel_event)
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to trim driving video: {proc.stderr}")
-
-    @staticmethod
-    def _rescale(src: Path, dest: Path, width: int, height: int) -> None:
-        cmd = [
-            "ffmpeg", "-y", "-i", str(src.resolve()),
-            "-vf", f"scale={width}:{height}",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            str(dest.resolve()),
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to rescale TPSMM output: {proc.stderr}")

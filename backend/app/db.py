@@ -20,11 +20,22 @@ CREATE TABLE IF NOT EXISTS jobs (
     driving_video_path TEXT NOT NULL,
     output_video_path TEXT,
     error TEXT,
+    log TEXT,
     processing_seconds REAL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 """
+
+# Columns added after the first release; applied to existing databases on boot.
+_MIGRATION_COLUMNS = {"log": "TEXT"}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+    for column, col_type in _MIGRATION_COLUMNS.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {column} {col_type}")
 
 
 def _connect() -> sqlite3.Connection:
@@ -43,6 +54,7 @@ def get_conn() -> sqlite3.Connection:
         _conn = _connect()
         with _lock:
             _conn.execute(SCHEMA)
+            _migrate(_conn)
             _conn.commit()
     return _conn
 
@@ -57,6 +69,18 @@ def transaction():
         except Exception:
             conn.rollback()
             raise
+
+
+def fetch(sql: str, args: tuple = ()) -> list[sqlite3.Row]:
+    """Run a read query under the same lock as writes.
+
+    The connection is shared between request threads and the worker thread;
+    sqlite3 connections aren't safe for concurrent use, so reads must not
+    interleave with a write in progress.
+    """
+    conn = get_conn()
+    with _lock:
+        return conn.execute(sql, args).fetchall()
 
 
 def row_to_job_dict(row: sqlite3.Row) -> dict:

@@ -8,14 +8,16 @@ or multi-GPU hardware.
 from __future__ import annotations
 
 import shutil
-import subprocess
 import time
 
-from .base import AnimationBackend, AnimationRequest, AnimationResult
+from .base import IMAGE_TO_VIDEO, MOTION_TRANSFER, AnimationBackend, AnimationRequest, AnimationResult
+from .process import run_cancellable
 
 
 class MockAnimationBackend(AnimationBackend):
     name = "mock"
+    description = "Loops the reference image (ffmpeg only, no model) -- for exercising the pipeline."
+    modes = frozenset({MOTION_TRANSFER, IMAGE_TO_VIDEO})
 
     def is_available(self) -> bool:
         return shutil.which("ffmpeg") is not None
@@ -36,7 +38,7 @@ class MockAnimationBackend(AnimationBackend):
             "-pix_fmt", "yuv420p",
             str(output_path),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = run_cancellable(cmd, cancel_event=request.cancel_event)
         if proc.returncode != 0:
             raise RuntimeError(f"mock backend ffmpeg failed: {proc.stderr}")
 

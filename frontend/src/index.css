@@ -165,8 +165,109 @@ body {
   white-space: pre-wrap;
 }
 
+.job-card--cancelled .job-card__status {
+  color: var(--muted);
+}
+
+.job-card__log {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.job-card__log pre {
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+
+.job-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
 .job-card__timing {
   color: var(--muted);
   font-size: 0.75rem;
-  margin-top: 0.5rem;
+}
+
+.job-card__actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.job-card__actions a {
+  color: var(--accent);
+}
+
+.job-card__actions button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.upload-form__hint {
+  font-size: 0.75rem;
+}
+
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.25rem;
+}
+
+.upload-form .mode-tabs__tab {
+  background: none;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.5rem 0.25rem;
+  border-radius: 7px;
+}
+
+.upload-form .mode-tabs__tab--active {
+  background: var(--accent);
+  color: white;
+}
+
+.upload-form > .upload-form__hint {
+  margin: -0.5rem 0 0;
+  color: var(--muted);
+}
+
+.upload-form__fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.upload-form__fieldset legend {
+  padding: 0 0.25rem;
+}
+
+.upload-form .upload-form__radio {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
 }

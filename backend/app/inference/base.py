@@ -9,14 +9,23 @@ changes.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from pathlib import Path
+
+
+# What an engine can do. A job's mode decides which one it needs:
+#   motion_transfer -- animate a reference image to follow a driving video
+#   image_to_video  -- animate a reference image from a text prompt, no video
+MOTION_TRANSFER = "motion_transfer"
+IMAGE_TO_VIDEO = "image_to_video"
 
 
 @dataclass
 class AnimationRequest:
     reference_image_path: Path
-    driving_video_path: Path
+    # None for image_to_video requests.
+    driving_video_path: Path | None
     output_dir: Path
     width: int = 720
     height: int = 1280
@@ -27,6 +36,9 @@ class AnimationRequest:
     seed: int = -1
     prompt: str = ""
     prompt_ref: str = "reference video of the character's motion"
+    # Set by the job queue when the user cancels; backends pass it to
+    # `process.run_cancellable` so the engine subprocess is torn down.
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
 
 @dataclass
@@ -40,6 +52,10 @@ class AnimationBackend(ABC):
     """A single animation engine (e.g. Wan-Animate-2, a mock, a future model)."""
 
     name: str
+    description: str = ""
+    modes: frozenset[str] = frozenset({MOTION_TRANSFER})
+    # Longest clip the model handles well, if shorter than the app-wide limit.
+    max_clip_seconds: int | None = None
 
     @abstractmethod
     def is_available(self) -> bool:

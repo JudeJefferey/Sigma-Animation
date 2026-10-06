@@ -24,7 +24,14 @@ class Settings:
     tpsmm_mode: str = os.environ.get("TPSMM_MODE", "relative")
     tpsmm_img_shape: str = os.environ.get("TPSMM_IMG_SHAPE", "256,256")
 
+    wan_ti2v_repo: str | None = os.environ.get("WAN_TI2V_REPO")
+    wan_ti2v_ckpt_dir: str | None = os.environ.get("WAN_TI2V_CKPT_DIR")
+    wan_ti2v_python: str = os.environ.get("WAN_TI2V_PYTHON", "python")
+    wan_ti2v_offload: bool = os.environ.get("WAN_TI2V_OFFLOAD", "true").lower() in ("1", "true", "yes")
+
     max_upload_mb: int = int(os.environ.get("SIGMA_MAX_UPLOAD_MB", "200"))
+    max_output_fps: int = int(os.environ.get("SIGMA_MAX_OUTPUT_FPS", "120"))
+    max_clip_seconds: int = int(os.environ.get("SIGMA_MAX_CLIP_SECONDS", "60"))
 
     @property
     def uploads_dir(self) -> Path:

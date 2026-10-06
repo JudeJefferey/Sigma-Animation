@@ -1,13 +1,13 @@
 # Setting up a real animation engine
 
 The app ships with a `mock` backend (no GPU needed) so you can develop and
-test the full pipeline immediately. Two real engines are wired up, at
-opposite ends of the hardware spectrum:
+test the full pipeline immediately. Three real engines are wired up:
 
 | Backend | Model | Hardware | Quality |
 | --- | --- | --- | --- |
 | `tpsmm` | [Thin-Plate-Spline-Motion-Model](https://github.com/yoyo-nb/Thin-Plate-Spline-Motion-Model) (MIT) | Runs on CPU, ~350MB checkpoint | Warps the source image to follow motion; domain-specific per checkpoint (faces, Tai Chi, etc), not open-ended generation |
 | `wan-animate-2` | [Wan-Animate-2](https://github.com/Wan-Video/Wan-Animate-2) | 8x A800/A100-class GPUs for 720p | State of the art, full generative character animation |
+| `wan-ti2v` | [Wan2.2](https://github.com/Wan-Video/Wan2.2) TI2V-5B (Apache 2.0) | One 24GB GPU (e.g. RTX 4090) | Image + text prompt to video (the "Animate image" mode); no driving video |
 
 ## TPSMM (CPU-feasible)
 
@@ -107,10 +107,58 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 
 This requires the host to have `nvidia-container-toolkit` installed.
 
+## Wan2.2 TI2V-5B (image + prompt, single GPU)
+
+This powers the **Animate image** mode: an image plus a text prompt
+describing the motion, no driving video. Wan2.2's TI2V-5B is a 5B-parameter
+text+image-to-video model; per its README it runs on a single 24GB GPU
+(e.g. RTX 4090) and makes 5 seconds of 720p in under ~9 minutes.
+
+### Setup
+
+```bash
+git clone https://github.com/Wan-Video/Wan2.2.git
+cd Wan2.2
+pip install -r requirements.txt          # torch >= 2.4 with CUDA
+pip install "huggingface_hub[cli]"
+huggingface-cli download Wan-AI/Wan2.2-TI2V-5B --local-dir ./Wan2.2-TI2V-5B
+```
+
+```bash
+export WAN_TI2V_REPO=/path/to/Wan2.2
+export WAN_TI2V_CKPT_DIR=/path/to/Wan2.2/Wan2.2-TI2V-5B   # default: <repo>/Wan2.2-TI2V-5B
+export WAN_TI2V_PYTHON=python3        # python with Wan2.2's requirements
+export WAN_TI2V_OFFLOAD=true          # default; set false on GPUs with plenty of memory
+```
+
+`GET /api/backends` lists `wan-ti2v` as available once `generate.py`, the
+checkpoint directory and the python executable are all found.
+
+### How the app drives it
+
+The adapter (`app/inference/wan_ti2v.py`) runs Wan2.2's own CLI:
+
+```
+python generate.py --task ti2v-5B --size 1280*704 --ckpt_dir <ckpt> \
+    --image <image> --prompt "<prompt>" --frame_num <4n+1> \
+    --sample_steps <steps> --base_seed <seed> --save_file <out.mp4> \
+    --offload_model True --convert_model_dtype --t5_cpu
+```
+
+- **Size**: the model only supports `1280*704` (landscape) and `704*1280`
+  (portrait); the adapter picks by the requested width/height, then rescales
+  the result to the exact size and FPS you asked for.
+- **Length**: the model generates at 24fps and its default clip is 121 frames
+  (~5 seconds), so clips are capped at 5 seconds for this engine. Frame
+  counts are rounded to the `4n+1` the model requires.
+- **Offload flags**: the three flags at the end trade speed for memory so the
+  model fits in 24GB. They're on by default (`WAN_TI2V_OFFLOAD`).
+
 ## Swapping in a different model later
 
 `app/inference/base.py` defines the `AnimationBackend` interface
-(`is_available()` / `run(request) -> AnimationResult`). To add another
+(`is_available()` / `run(request) -> AnimationResult`, plus `modes`: which
+of motion transfer and image-to-video it supports). To add another
 self-hosted engine, implement that interface in a new file under
 `app/inference/`, register it in `app/inference/registry.py`, and it becomes
 selectable from the UI's engine dropdown -- no changes needed elsewhere.

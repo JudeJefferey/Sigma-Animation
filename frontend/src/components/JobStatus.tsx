@@ -2,16 +2,27 @@ import type { Job } from "../api";
 
 interface Props {
   job: Job;
+  onCancel: (jobId: string) => void;
+  onDelete: (jobId: string) => void;
 }
+
+const MODE_LABEL: Record<Job["params"]["mode"], string> = {
+  motion_transfer: "copy motion",
+  image_to_video: "animate image",
+  reanimate: "reanimate",
+};
 
 const STATUS_LABEL: Record<Job["status"], string> = {
   queued: "Queued",
   running: "Generating...",
   completed: "Completed",
   failed: "Failed",
+  cancelled: "Cancelled",
 };
 
-export default function JobStatus({ job }: Props) {
+export default function JobStatus({ job, onCancel, onDelete }: Props) {
+  const active = job.status === "queued" || job.status === "running";
+
   return (
     <div className={`job-card job-card--${job.status}`}>
       <div className="job-card__header">
@@ -19,7 +30,10 @@ export default function JobStatus({ job }: Props) {
         <span className="job-card__status">{STATUS_LABEL[job.status]}</span>
       </div>
       <div className="job-card__meta">
-        engine: {job.backend} · {job.params.width}x{job.params.height} · {job.params.fps}fps
+        {MODE_LABEL[job.params.mode ?? "motion_transfer"]}
+        {job.params.source_job_id && ` of ${job.params.source_job_id.slice(0, 8)}`} · engine: {job.backend} ·{" "}
+        {job.params.width}x{job.params.height} · {job.params.fps}fps
+        {job.params.output_fps > job.params.fps && ` → ${job.params.output_fps}fps smoothed`}
       </div>
 
       {job.status === "completed" && job.output_video_url && (
@@ -28,9 +42,34 @@ export default function JobStatus({ job }: Props) {
 
       {job.status === "failed" && job.error && <div className="job-card__error">{job.error}</div>}
 
-      {job.processing_seconds != null && (
-        <div className="job-card__timing">{job.processing_seconds.toFixed(1)}s</div>
+      {job.log && (
+        <details className="job-card__log">
+          <summary>Engine log</summary>
+          <pre>{job.log}</pre>
+        </details>
       )}
+
+      <div className="job-card__footer">
+        <span className="job-card__timing">
+          {job.processing_seconds != null && `${job.processing_seconds.toFixed(1)}s`}
+        </span>
+        <span className="job-card__actions">
+          {job.status === "completed" && job.output_video_url && (
+            <a href={job.output_video_url} download={`${job.id}.mp4`}>
+              Download
+            </a>
+          )}
+          {active ? (
+            <button type="button" onClick={() => onCancel(job.id)}>
+              Cancel
+            </button>
+          ) : (
+            <button type="button" onClick={() => onDelete(job.id)}>
+              Delete
+            </button>
+          )}
+        </span>
+      </div>
     </div>
   );
 }

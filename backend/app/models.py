@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,12 +11,30 @@ class JobStatus(str, Enum):
     running = "running"
     completed = "completed"
     failed = "failed"
+    cancelled = "cancelled"
+
+
+JobMode = Literal["motion_transfer", "image_to_video", "reanimate"]
+
+# The engine capability each job mode needs. Reanimate extracts the source
+# video's first frame as the character, then runs ordinary motion transfer.
+ENGINE_MODE: dict[str, str] = {
+    "motion_transfer": "motion_transfer",
+    "image_to_video": "image_to_video",
+    "reanimate": "motion_transfer",
+}
 
 
 class JobParams(BaseModel):
+    mode: JobMode = "motion_transfer"
+    # Set when the job was made from an earlier job's result or inputs.
+    source_job_id: str | None = None
     width: int = 720
     height: int = 1280
     fps: int = 24
+    # Final video frame rate. Above `fps`, in-between frames are interpolated
+    # after generation; 0 keeps the engine's output as-is.
+    output_fps: int = 0
     clip_len: int = 81
     sample_guide_scale: float = 3.0
     steps: int = 40
@@ -32,6 +51,7 @@ class JobOut(BaseModel):
     params: JobParams
     output_video_url: str | None = None
     error: str | None = None
+    log: str | None = None
     processing_seconds: float | None = None
     created_at: str
     updated_at: str
