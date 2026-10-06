@@ -40,6 +40,19 @@ def list_backends() -> dict:
     }
 
 
+def _validate_clip(clip_len: int, fps: int) -> None:
+    if fps < 1:
+        raise HTTPException(status_code=400, detail="fps must be at least 1")
+    if clip_len < 1:
+        raise HTTPException(status_code=400, detail="clip_len must be at least 1 frame")
+    if clip_len / fps > settings.max_clip_seconds:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Clip is too long: {clip_len} frames at {fps}fps is {clip_len / fps:.1f}s; "
+            f"the maximum is {settings.max_clip_seconds}s",
+        )
+
+
 def _require_usable_backend(name: str) -> None:
     known = {b["name"]: b for b in backend_info()}
     if name not in known:
@@ -70,6 +83,7 @@ async def create_job(
     backend = backend or settings.default_backend
     # Reject before writing uploads to disk, rather than failing later in the worker.
     _require_usable_backend(backend)
+    _validate_clip(clip_len, fps)
 
     job_id = new_job_id()
     try:

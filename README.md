@@ -76,7 +76,9 @@ backend on port 8000.
 1. **Reference image**: the character you want to animate (PNG, JPG or WebP).
 2. **Driving video**: the motion you want it to copy (MP4, WebM or MOV).
 3. **Engine**: choose one. Engines that aren't set up are greyed out.
-4. Click **Generate animation**.
+4. **Clip length**: how many seconds of animation to make, from 1 to 60. If
+   the driving video is shorter, TPSMM's output stops where the video ends.
+5. Click **Generate animation**.
 
 The job appears in the list on the right. From there you can watch it, download
 it, open the engine log, cancel it while it runs, or delete it when it's done.
@@ -126,6 +128,7 @@ All settings are environment variables read by the backend (`backend/app/config.
 | `SIGMA_DATA_DIR` | `./data` | Where uploads and results are stored |
 | `SIGMA_DB_PATH` | `./data/sigma_animation.db` | SQLite job database |
 | `SIGMA_MAX_UPLOAD_MB` | `200` | Maximum size per uploaded file |
+| `SIGMA_MAX_CLIP_SECONDS` | `60` | Longest clip the API accepts (the web form also caps at 60) |
 | `TPSMM_*` | | TPSMM engine setup (see Step 4) |
 | `WAN_ANIMATE2_*` | | Wan-Animate-2 engine setup (see `docs/MODEL_SETUP.md`) |
 

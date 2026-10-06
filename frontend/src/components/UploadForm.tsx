@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { BackendsResponse, CreateJobInput } from "../api";
 
+// Matches the backend's default SIGMA_MAX_CLIP_SECONDS.
+const MAX_CLIP_SECONDS = 60;
+
 interface Props {
   backends: BackendsResponse | null;
   submitting: boolean;
@@ -16,6 +19,8 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
   const [height, setHeight] = useState(1280);
   const [fps, setFps] = useState(24);
   const [steps, setSteps] = useState(40);
+  const [clipSeconds, setClipSeconds] = useState(3);
+  const clipFrames = Math.round(clipSeconds * fps);
 
   // The engine list loads after first render; pick the server's default once it
   // arrives, falling back to the first engine that's actually set up.
@@ -39,7 +44,7 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
       width,
       height,
       fps,
-      clipLen: 81,
+      clipLen: clipFrames,
       sampleGuideScale: 3.0,
       steps,
       seed: -1,
@@ -105,6 +110,21 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
           <input type="number" value={fps} min={1} max={60} onChange={(e) => setFps(Number(e.target.value))} />
         </label>
       </div>
+
+      <label>
+        Clip length (seconds, max {MAX_CLIP_SECONDS})
+        <input
+          type="number"
+          value={clipSeconds}
+          min={1}
+          max={MAX_CLIP_SECONDS}
+          step={1}
+          onChange={(e) => setClipSeconds(Number(e.target.value))}
+        />
+        <span className="upload-form__hint">
+          {clipFrames} frames at {fps}fps
+        </span>
+      </label>
 
       <label>
         Diffusion steps ({steps})

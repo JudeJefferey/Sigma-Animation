@@ -139,3 +139,28 @@ def test_migrates_database_created_before_log_column():
     _migrate(conn)  # idempotent
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
     assert "log" in columns
+
+
+def _submit_clip(client, clip_len, fps):
+    files = {
+        "reference_image": ("ref.png", _fake_image_bytes(), "image/png"),
+        "driving_video": ("drive.mp4", _fake_video_bytes(), "video/mp4"),
+    }
+    data = {"backend": "mock", "clip_len": str(clip_len), "fps": str(fps), "width": "64", "height": "64"}
+    return client.post("/api/jobs", files=files, data=data)
+
+
+def test_accepts_one_minute_clip(client):
+    resp = _submit_clip(client, clip_len=60, fps=1)
+    assert resp.status_code == 200, resp.text
+    job = _wait_for(client, resp.json()["id"], {"completed", "failed"})
+    assert job["status"] == "completed", job
+
+
+@pytest.mark.parametrize(
+    ("clip_len", "fps"),
+    [(61, 1), (24 * 60 + 1, 24), (0, 24), (24, 0)],
+)
+def test_rejects_invalid_clip_length(client, clip_len, fps):
+    resp = _submit_clip(client, clip_len=clip_len, fps=fps)
+    assert resp.status_code == 400, resp.text
