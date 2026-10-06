@@ -18,7 +18,9 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
 - **`app/main.py`** -- FastAPI app, starts a background worker thread and
   requeues any interrupted jobs on boot.
 - **`app/routers/jobs.py`** -- HTTP surface: submit a job (multipart upload of
-  image + video + params), poll job status, download the result.
+  image + video + params), poll job status, cancel or delete a job, download
+  the result, and list engines (`GET /api/backends` reports every registered
+  engine with a description and whether it is set up on this server).
 - **`app/jobs.py`** -- job persistence (SQLite) and a single-worker queue.
   Animation inference is GPU-bound and heavyweight, so jobs run one at a time
   by design rather than in a thread/process pool.
@@ -38,6 +40,10 @@ frontend (React/Vite)  --HTTP-->  backend (FastAPI)  --subprocess-->  animation 
   - `wan_animate2.py` shells out to a self-hosted Wan-Animate-2 checkout via
     `torchrun`. This keeps the heavy multi-GPU model process isolated from the
     lightweight API process.
+  - `process.py` is the shared subprocess runner. Engines start their
+    commands through `run_cancellable`, which puts the child in its own
+    process group so cancelling a job kills the whole tree (torchrun spawns
+    one worker per GPU), not just the top-level process.
   - `registry.py` maps a `backend` name to an implementation. Adding a new
     engine (a different open-source animation model) means adding one file
     here plus a registry entry -- nothing else in the app changes.
@@ -52,13 +58,19 @@ dependency on any AI vendor SDK.
 
 1. Client `POST /api/jobs` with `reference_image`, `driving_video`, and
    generation params (resolution, fps, steps, prompt, which `backend`).
-2. Backend validates file types/sizes, saves them under
+2. Backend rejects unknown engines and engines that aren't set up on this
+   server (400), validates file types/sizes, saves them under
    `data/uploads/<job_id>/`, inserts a `queued` row, and enqueues the job id.
 3. The worker thread picks up the job, marks it `running`, and calls the
    selected `AnimationBackend.run(...)`.
-4. On success the row is marked `completed` with the output video path; the
-   client can then `GET /api/jobs/{id}/result` to stream the file.
+4. On success the row is marked `completed` with the output video path and
+   the tail of the engine's stdout as `log`; the client can then
+   `GET /api/jobs/{id}/result` to stream the file.
 5. On failure the row is marked `failed` with the error message.
+6. `POST /api/jobs/{id}/cancel` marks a queued job `cancelled` immediately; for
+   a running job it signals the worker, which kills the engine subprocess and
+   marks the job `cancelled`. `DELETE /api/jobs/{id}` removes a non-running job
+   along with its uploads and outputs.
 
 ## Why a subprocess boundary for the real model
 

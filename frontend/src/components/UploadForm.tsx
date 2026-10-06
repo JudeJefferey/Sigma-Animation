@@ -1,8 +1,8 @@
-import { FormEvent, useState } from "react";
-import type { CreateJobInput } from "../api";
+import { FormEvent, useEffect, useState } from "react";
+import type { BackendsResponse, CreateJobInput } from "../api";
 
 interface Props {
-  backends: string[];
+  backends: BackendsResponse | null;
   submitting: boolean;
   onSubmit: (input: CreateJobInput) => void;
 }
@@ -10,12 +10,22 @@ interface Props {
 export default function UploadForm({ backends, submitting, onSubmit }: Props) {
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [drivingVideo, setDrivingVideo] = useState<File | null>(null);
-  const [backend, setBackend] = useState(backends[0] ?? "mock");
+  const [backend, setBackend] = useState("mock");
   const [prompt, setPrompt] = useState("");
   const [width, setWidth] = useState(720);
   const [height, setHeight] = useState(1280);
   const [fps, setFps] = useState(24);
   const [steps, setSteps] = useState(40);
+
+  // The engine list loads after first render; pick the server's default once it
+  // arrives, falling back to the first engine that's actually set up.
+  useEffect(() => {
+    if (!backends) return;
+    const usable = backends.available;
+    setBackend(usable.includes(backends.default) ? backends.default : (usable[0] ?? "mock"));
+  }, [backends]);
+
+  const selected = backends?.backends.find((b) => b.name === backend);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -61,13 +71,14 @@ export default function UploadForm({ backends, submitting, onSubmit }: Props) {
       <label>
         Engine
         <select value={backend} onChange={(e) => setBackend(e.target.value)}>
-          {backends.length === 0 && <option value="mock">mock (no engines detected)</option>}
-          {backends.map((b) => (
-            <option key={b} value={b}>
-              {b}
+          {!backends && <option value="mock">mock (engine list unavailable)</option>}
+          {backends?.backends.map((b) => (
+            <option key={b.name} value={b.name} disabled={!b.available}>
+              {b.available ? b.name : `${b.name} (not set up)`}
             </option>
           ))}
         </select>
+        {selected?.description && <span className="upload-form__hint">{selected.description}</span>}
       </label>
 
       <label>

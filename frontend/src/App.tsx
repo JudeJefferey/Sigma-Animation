@@ -1,19 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import UploadForm from "./components/UploadForm";
 import JobStatus from "./components/JobStatus";
-import { createJob, getJob, listBackends, listJobs, type CreateJobInput, type Job } from "./api";
+import {
+  FINISHED_STATUSES,
+  cancelJob,
+  createJob,
+  deleteJob,
+  getJob,
+  listBackends,
+  listJobs,
+  type BackendsResponse,
+  type CreateJobInput,
+  type Job,
+} from "./api";
 
 const POLL_INTERVAL_MS = 2000;
 
 export default function App() {
-  const [backends, setBackends] = useState<string[]>([]);
+  const [backends, setBackends] = useState<BackendsResponse | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   useEffect(() => {
-    listBackends().then(setBackends).catch(() => setBackends([]));
+    listBackends().then(setBackends).catch(() => setBackends(null));
     listJobs()
       .then((initialJobs) => {
         setJobs(initialJobs);
@@ -37,16 +49,40 @@ export default function App() {
       try {
         const updated = await getJob(jobId);
         setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
-        if (updated.status === "completed" || updated.status === "failed") {
-          clearInterval(pollTimers.current[jobId]);
-          delete pollTimers.current[jobId];
+        if (FINISHED_STATUSES.includes(updated.status)) {
+          stopWatching(jobId);
         }
       } catch {
-        clearInterval(pollTimers.current[jobId]);
-        delete pollTimers.current[jobId];
+        stopWatching(jobId);
       }
     }, POLL_INTERVAL_MS);
     pollTimers.current[jobId] = timer;
+  }
+
+  function stopWatching(jobId: string) {
+    clearInterval(pollTimers.current[jobId]);
+    delete pollTimers.current[jobId];
+  }
+
+  async function handleCancel(jobId: string) {
+    setActionError(null);
+    try {
+      const updated = await cancelJob(jobId);
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleDelete(jobId: string) {
+    setActionError(null);
+    try {
+      await deleteJob(jobId);
+      stopWatching(jobId);
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function handleSubmit(input: CreateJobInput) {
@@ -79,10 +115,11 @@ export default function App() {
 
         <section className="app__panel">
           <h2>Jobs</h2>
+          {actionError && <div className="app__error">{actionError}</div>}
           {jobs.length === 0 && <p className="app__empty">No jobs yet.</p>}
           <div className="job-list">
             {jobs.map((job) => (
-              <JobStatus key={job.id} job={job} />
+              <JobStatus key={job.id} job={job} onCancel={handleCancel} onDelete={handleDelete} />
             ))}
           </div>
         </section>

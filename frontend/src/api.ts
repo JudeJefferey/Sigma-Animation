@@ -1,4 +1,6 @@
-export type JobStatus = "queued" | "running" | "completed" | "failed";
+export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export const FINISHED_STATUSES: JobStatus[] = ["completed", "failed", "cancelled"];
 
 export interface JobParams {
   width: number;
@@ -20,9 +22,22 @@ export interface Job {
   params: JobParams;
   output_video_url: string | null;
   error: string | null;
+  log: string | null;
   processing_seconds: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface BackendInfo {
+  name: string;
+  description: string;
+  available: boolean;
+}
+
+export interface BackendsResponse {
+  available: string[];
+  default: string;
+  backends: BackendInfo[];
 }
 
 export interface CreateJobInput {
@@ -48,10 +63,9 @@ async function unwrap<T>(res: Response): Promise<T> {
   return res.json();
 }
 
-export async function listBackends(): Promise<string[]> {
+export async function listBackends(): Promise<BackendsResponse> {
   const res = await fetch("/api/backends");
-  const data = await unwrap<{ available: string[] }>(res);
-  return data.available;
+  return unwrap<BackendsResponse>(res);
 }
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
@@ -81,4 +95,17 @@ export async function getJob(id: string): Promise<Job> {
 export async function listJobs(): Promise<Job[]> {
   const res = await fetch("/api/jobs");
   return unwrap<Job[]>(res);
+}
+
+export async function cancelJob(id: string): Promise<Job> {
+  const res = await fetch(`/api/jobs/${id}/cancel`, { method: "POST" });
+  return unwrap<Job>(res);
+}
+
+export async function deleteJob(id: string): Promise<void> {
+  const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Request failed with status ${res.status}`);
+  }
 }

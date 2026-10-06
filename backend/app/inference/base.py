@@ -9,7 +9,8 @@ changes.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -27,6 +28,9 @@ class AnimationRequest:
     seed: int = -1
     prompt: str = ""
     prompt_ref: str = "reference video of the character's motion"
+    # Set by the job queue when the user cancels; backends pass it to
+    # `process.run_cancellable` so the engine subprocess is torn down.
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
 
 @dataclass
@@ -40,6 +44,7 @@ class AnimationBackend(ABC):
     """A single animation engine (e.g. Wan-Animate-2, a mock, a future model)."""
 
     name: str
+    description: str = ""
 
     @abstractmethod
     def is_available(self) -> bool:

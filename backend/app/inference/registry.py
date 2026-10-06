@@ -24,3 +24,12 @@ def get_backend(name: str) -> AnimationBackend:
 
 def available_backends() -> list[str]:
     return [name for name, cls in _BACKENDS.items() if cls().is_available()]
+
+
+def backend_info() -> list[dict]:
+    """Every registered engine with whether it is usable on this deployment."""
+    info = []
+    for name, cls in _BACKENDS.items():
+        backend = cls()
+        info.append({"name": name, "description": backend.description, "available": backend.is_available()})
+    return info

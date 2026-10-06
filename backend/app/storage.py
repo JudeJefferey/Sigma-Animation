@@ -29,7 +29,7 @@ async def save_upload(file: UploadFile, kind: str, job_id: str) -> Path:
     allowed = ALLOWED_IMAGE_EXT if kind == "image" else ALLOWED_VIDEO_EXT
     ext = _validate_ext(file.filename or "", allowed, kind)
 
-    job_dir = settings.uploads_dir / job_id
+    job_dir = job_upload_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
     dest = job_dir / f"{kind}{ext}"
 
@@ -45,6 +45,10 @@ async def save_upload(file: UploadFile, kind: str, job_id: str) -> Path:
             out.write(chunk)
 
     return dest
+
+
+def job_upload_dir(job_id: str) -> Path:
+    return settings.uploads_dir / job_id
 
 
 def job_output_dir(job_id: str) -> Path:

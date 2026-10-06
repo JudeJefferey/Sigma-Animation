@@ -18,16 +18,17 @@ Configure via environment variables (see backend/app/config.py):
 from __future__ import annotations
 
 import shutil
-import subprocess
 import time
 from pathlib import Path
 
 from ..config import settings
 from .base import AnimationBackend, AnimationRequest, AnimationResult
+from .process import run_cancellable
 
 
 class WanAnimate2Backend(AnimationBackend):
     name = "wan-animate-2"
+    description = "Wan-Animate-2: full generative character animation. Needs a multi-GPU host."
 
     def __init__(self) -> None:
         self.repo_dir = Path(settings.wan_animate2_repo) if settings.wan_animate2_repo else None
@@ -75,12 +76,11 @@ class WanAnimate2Backend(AnimationBackend):
             "--output-dir", str(request.output_dir.resolve()),
         ]
 
-        proc = subprocess.run(
+        proc = run_cancellable(
             cmd,
-            cwd=str(infer_dir),
-            capture_output=True,
-            text=True,
+            cwd=infer_dir,
             env=self._build_env(),
+            cancel_event=request.cancel_event,
         )
         if proc.returncode != 0:
             raise RuntimeError(

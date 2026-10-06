@@ -10,6 +10,7 @@ class JobStatus(str, Enum):
     running = "running"
     completed = "completed"
     failed = "failed"
+    cancelled = "cancelled"
 
 
 class JobParams(BaseModel):
@@ -32,6 +33,7 @@ class JobOut(BaseModel):
     params: JobParams
     output_video_url: str | None = None
     error: str | None = None
+    log: str | None = None
     processing_seconds: float | None = None
     created_at: str
     updated_at: str
